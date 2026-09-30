@@ -4,13 +4,13 @@
 
 ## 1. Thông tin học viên
 
-- **Họ và tên:**
-- **MSSV:**
+- **Họ và tên:** Lê Thị Thùy Trang
+- **MSSV:** 2A202602678
 - **Lớp:** K4-L3B
 - **Repository URL:**
 - **Commit SHA cuối:**
 - **Challenge ID:**
-- **Tên project Langfuse cá nhân:** `day13-k4-l3b-<MSSV>`
+- **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202602678`
 
 ## 2. Evidence index
 
@@ -31,13 +31,13 @@ Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ả
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | | | |
-| `validate_dashboard.py` | | | |
-| `pytest` | | | |
-| Số traces hợp lệ | | | |
-| Số PII leak | | | |
-| Latency P95 / TTFT P95 | | | |
-| Retrieval success rate | | | |
+| `validate_logs.py` | 30/100 | | Baseline chưa implement CP1 correlation ID & context |
+| `validate_dashboard.py` | 6/6 panel | | Đạt chuẩn schema contract |
+| `pytest` | 22 passed | | Toàn bộ 22 public unit test ban đầu pass |
+| Số traces hợp lệ | 10 | | Traces ban đầu đã gửi lên Langfuse |
+| Số PII leak | 0 | | Chưa phát hiện leak ở baseline |
+| Latency P95 / TTFT P95 | 2067ms / 50ms | | Đo từ 10 request baseline load test |
+| Retrieval success rate | 100.0% | | 11/11 retrieval thành công |
 
 ## 4. Logging và PII
 
