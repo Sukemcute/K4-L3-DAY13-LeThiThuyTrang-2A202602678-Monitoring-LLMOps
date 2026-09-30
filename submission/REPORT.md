@@ -8,7 +8,7 @@
 - **MSSV:** 2A202602678
 - **Lớp:** K4-L3B
 - **Repository URL:** `https://github.com/Sukemcute/K4-L3-DAY13-LeThiThuyTrang-2A202602678-Monitoring-LLMOps`
-- **Commit SHA cuối:** `210be39` (hoặc commit SHA cuối cùng khi nộp lên LMS/Codelabs)
+- **Commit SHA cuối:** `8da9f1d`
 - **Challenge ID:** `day13-k4-l3b-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202602678`
 
