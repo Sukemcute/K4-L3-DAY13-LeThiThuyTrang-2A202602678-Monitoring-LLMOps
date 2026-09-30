@@ -4,6 +4,8 @@ import random
 import time
 from dataclasses import dataclass
 
+from datetime import datetime, timedelta, timezone
+
 from .incidents import STATE
 from .tracing import get_langfuse_client, observe
 
@@ -28,9 +30,11 @@ class FakeLLM:
 
     @observe(name="generation", as_type="generation", capture_input=False, capture_output=False)
     def generate(self, prompt: str) -> FakeResponse:
+        gen_start = datetime.now(timezone.utc)
         started = time.perf_counter()
         time.sleep(0.05)  # mô phỏng thời điểm token đầu tiên sẵn sàng
         ttft_ms = int((time.perf_counter() - started) * 1000)
+        completion_time = gen_start + timedelta(milliseconds=ttft_ms)
         time.sleep(0.10)
         input_tokens = max(20, len(prompt) // 4)
         output_tokens = random.randint(80, 180)
@@ -46,6 +50,7 @@ class FakeLLM:
             if hasattr(client, "update_current_generation"):
                 client.update_current_generation(
                     model=self.model,
+                    completion_start_time=completion_time,
                     usage_details={
                         "input": input_tokens,
                         "output": output_tokens,
