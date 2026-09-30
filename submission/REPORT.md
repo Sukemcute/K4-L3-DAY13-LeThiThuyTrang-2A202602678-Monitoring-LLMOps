@@ -31,20 +31,20 @@ Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ả
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | 30/100 | | Baseline chưa implement CP1 correlation ID & context |
+| `validate_logs.py` | 30/100 | 100/100 | Đạt toàn bộ 4 tiêu chí: schema, correlation ID, enrichment, PII |
 | `validate_dashboard.py` | 6/6 panel | | Đạt chuẩn schema contract |
-| `pytest` | 22 passed | | Toàn bộ 22 public unit test ban đầu pass |
+| `pytest` | 22 passed | 24 passed | Toàn bộ unit tests bao gồm PII tests pass |
 | Số traces hợp lệ | 10 | | Traces ban đầu đã gửi lên Langfuse |
-| Số PII leak | 0 | | Chưa phát hiện leak ở baseline |
-| Latency P95 / TTFT P95 | 2067ms / 50ms | | Đo từ 10 request baseline load test |
+| Số PII leak | 0 | 0 | Đã scrub sạch PII (Email, Phone VN, CCCD, Thẻ) |
+| Latency P95 / TTFT P95 | 2067ms / 50ms | | Đo từ baseline load test |
 | Retrieval success rate | 100.0% | | 11/11 retrieval thành công |
 
 ## 4. Logging và PII
 
-- **Cách tạo/nhận và truyền correlation ID:**
-- **Các metadata được ghi vào structured log:**
-- **Cách bảo đảm PII được scrub trước khi ghi:**
-- **Cách kiểm chứng kết quả:**
+- **Cách tạo/nhận và truyền correlation ID:** Dùng middleware `CorrelationIdMiddleware` kế thừa `BaseHTTPMiddleware`. Đầu mỗi request gọi `clear_contextvars()`, kiểm tra header `x-request-id` từ client (nếu có thì tái sử dụng, không có thì sinh mã ngẫu nhiên dạng `req-<8-hex>` qua `uuid.uuid4().hex[:8]`). Sau đó bind vào structlog contextvars `correlation_id`, lưu vào `request.state.correlation_id` và trả lại cho client trong response header `x-request-id` cùng `x-response-time-ms`.
+- **Các metadata được ghi vào structured log:** Tại endpoint `/chat`, gọi `bind_contextvars` để gắn `user_id_hash` (băm SHA-256 12 ký tự từ `user_id`), `session_id`, `feature`, `model` (`agent.model`), `env` (`APP_ENV`) trước log `request_received`. Log `response_sent` bổ sung thêm `latency_ms`, `ttft_ms`, `tokens_in`, `tokens_out`, `cost_usd`, `quality_score`, `tool_name`, `tool_success` và `answer_preview`.
+- **Cách bảo đảm PII được scrub trước khi ghi:** Đăng ký processor `scrub_event` vào pipeline của `structlog` trước bước `JsonlFileProcessor()` và `JSONRenderer()`. `scrub_event` quét đệ quy các chuỗi trong log và thay thế bằng regex: Email -> `[REDACTED_EMAIL]`, Số điện thoại VN -> `[REDACTED_PHONE_VN]`, CCCD 12 số -> `[REDACTED_CCCD]`, Thẻ ngân hàng 16 số -> `[REDACTED_CREDIT_CARD]`. Vì xử lý trước serializer, PII thô không bao giờ bị ghi vào file log hoặc console.
+- **Cách kiểm chứng kết quả:** Chạy `python -m pytest tests/test_pii.py` (pass 4/4 test). Gửi request thực tế có chứa các loại PII và `x-request-id`, kiểm tra file `data/logs.jsonl` thấy toàn bộ PII đã bị che và response header trả đúng correlation ID. Chạy `python scripts/validate_logs.py` đạt điểm tuyệt đối **100/100**.
 
 ## 5. Tracing và prompt versioning
 
