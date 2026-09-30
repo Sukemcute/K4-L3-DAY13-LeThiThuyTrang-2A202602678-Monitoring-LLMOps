@@ -127,7 +127,7 @@ def calculate_metrics() -> dict[str, Any]:
         "tokens_out": total_tokens_out,
         "avg_quality": avg_quality,
         "traffic_by_min": traffic_by_min,
-        "time_points": time_points[-20:],
+        "time_points": time_points[-50:] if len(time_points) > 50 else time_points,
     }
 
 

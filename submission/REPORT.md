@@ -14,18 +14,31 @@
 
 ## 2. Evidence index
 
-Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ảnh; nếu cần giải thích, ghi bằng chữ trong các mục sau.
+Bảng ánh xạ toàn bộ evidence được lưu trong thư mục `submission/evidence/` theo hướng dẫn chi tiết [docs/SCREENSHOT_GUIDE.md](../docs/SCREENSHOT_GUIDE.md):
 
-| Evidence | Đường dẫn |
-|---|---|
-| Pytest cuối | `evidence/pytest.txt` |
-| Log validator | `evidence/log-validator.txt` |
-| Dashboard validator | `evidence/dashboard-validator.txt` |
-| Structured log + incident log | `evidence/01-incident-log.png` |
-| Trace list | `evidence/02-trace-list.png` |
-| Trace waterfall + metadata + incident trace | `evidence/03-incident-trace.png` |
-| Prompt versions + promote/rollback | `evidence/04-prompt-versioning.png` |
-| Dashboard + incident metric | `evidence/05-dashboard-incident.png` |
+| STT | Tên file evidence | Mô tả nội dung chứng minh | Đường dẫn tương đối |
+|:---:|---|---|---|
+| 01 | `01-pytest.png` / `pytest.txt` | Kết quả chạy test tự động (24/24 passed) | `evidence/pytest.txt` / `evidence/01-pytest.png` |
+| 02 | `02-log-validator.png` / `log-validator.txt` | Điểm đánh giá log format và PII (100/100) | `evidence/log-validator.txt` / `evidence/02-log-validator.png` |
+| 03 | `03-dashboard-validator.png` / `dashboard-validator.txt` | Kiểm tra hợp lệ 6/6 panels của Dashboard contract | `evidence/dashboard-validator.txt` / `evidence/03-dashboard-validator.png` |
+| 04 | `04-structured-log.png` | Cấu trúc log JSON và metadata (`correlation_id`, `model`, `env`...) | `evidence/04-structured-log.png` |
+| 05 | `05-pii-redaction.png` | Dữ liệu PII (Email, SĐT, CCCD, Thẻ) được scrub thành `[REDACTED_...]` | `evidence/05-pii-redaction.png` |
+| 06 | `06-trace-list.png` | Danh sách traces trong project cá nhân (`day13-k4-l3b-2A202602678`) | `evidence/06-trace-list.png` |
+| 07 | `07-trace-waterfall.png` | Cây quan sát phân cấp: `lab-agent-run` -> `retrieval` & `generation` | `evidence/07-trace-waterfall.png` |
+| 08 | `08-trace-metadata.png` | Chi tiết metadata của trace (`correlation_id`, `prompt_name`, `version`) | `evidence/08-trace-metadata.png` |
+| 09 | `09-prompt-versions.png` | Quản lý prompt `day13-chat` gồm Version 1 và Version 2 | `evidence/09-prompt-versions.png` |
+| 10 | `10-prompt-rollback.png` | Bằng chứng promote prompt v2 lên production và rollback về v1 | `evidence/10-prompt-rollback.png` |
+| 11 | `11-dashboard-overview.png` | Toàn cảnh Dashboard 6 panels đọc trực tiếp từ `data/logs.jsonl` | `evidence/11-dashboard-overview.png` |
+| 12 | `12-incident-metric.png` | Đỉnh nhọn độ trễ P95 tăng vọt trên Dashboard do sự cố `rag_slow` | `evidence/12-incident-metric.png` |
+| 13 | `13-incident-log.png` | Dòng log trong `data/logs.jsonl` của request sự cố (`req-cc2997e5`) | `evidence/13-incident-log.png` |
+| 14 | `14-incident-trace.png` | Waterfall trace trên Langfuse của `req-cc2997e5` định vị span `retrieval` bị chậm | `evidence/14-incident-trace.png` |
+
+> **Ánh xạ tương đương với 5 ảnh runtime bắt buộc theo [docs/SUBMISSION.md](../docs/SUBMISSION.md):**
+> - **Ảnh 1 (`01-incident-log.png`):** Structured log và log của request sự cố ↔ `evidence/13-incident-log.png` (và `evidence/04-structured-log.png`).
+> - **Ảnh 2 (`02-trace-list.png`):** Danh sách traces trong project cá nhân ↔ `evidence/06-trace-list.png`.
+> - **Ảnh 3 (`03-incident-trace.png`):** Trace waterfall & metadata của incident ↔ `evidence/14-incident-trace.png` (và `evidence/07-trace-waterfall.png`, `evidence/08-trace-metadata.png`).
+> - **Ảnh 4 (`04-prompt-versioning.png`):** Quản lý prompt versions, promote và rollback ↔ `evidence/10-prompt-rollback.png` (và `evidence/09-prompt-versions.png`).
+> - **Ảnh 5 (`05-dashboard-incident.png`):** Toàn cảnh 6 panel dashboard và metric bất thường ↔ `evidence/11-dashboard-overview.png` & `evidence/12-incident-metric.png`.
 
 ## 3. Kết quả kỹ thuật
 
@@ -34,10 +47,10 @@ Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ả
 | `validate_logs.py` | 30/100 | 100/100 | Đạt toàn bộ 4 tiêu chí: schema, correlation ID, enrichment, PII |
 | `validate_dashboard.py` | 6/6 panel | 6/6 panel | Đạt chuẩn schema contract 6/6 panel |
 | `pytest` | 22 passed | 24 passed | Toàn bộ unit tests bao gồm PII tests pass |
-| Số traces hợp lệ | 10 | 21 | Traces hợp lệ đầy đủ span tree trong workload |
+| Số traces hợp lệ | 10 | > 150 (~154 traces) | Traces hợp lệ đầy đủ span tree (`agent`, `retriever`, `generation`) ghi nhận trên Langfuse (ảnh `06-trace-list.png`) |
 | Số PII leak | 0 | 0 | Đã scrub sạch PII (Email, Phone VN, CCCD, Thẻ) |
-| Latency P95 / TTFT P95 | 2067ms / 50ms | 2163ms / 53ms | Duy trì dưới ngưỡng SLO 3000ms |
-| Retrieval success rate | 100.0% | 100.0% | 21/21 retrieval thành công |
+| Latency P95 / TTFT P95 | 2067ms / 50ms | 2657ms / 50ms | Phản ánh đầy đủ baseline và đỉnh nhọn do sự cố challenge |
+| Retrieval success rate | 100.0% | 100.0% | 100% retrieval thành công |
 
 ## 4. Logging và PII
 
@@ -58,10 +71,16 @@ Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ả
 - **Version/label baseline:** Version 1 (labels: `baseline`, `production`)
 - **Version/label candidate:** Version 2 (labels: `candidate`, `latest`)
 - **Trace ID / Correlation ID của mỗi version:**
-  - Version 1 (`baseline`): correlation_id `req-5f97ffb1` (hoặc `req-d76f4139`)
-  - Version 2 (`candidate`): correlation_id `req-a45b62fe` (hoặc `req-7c7acfe7`)
-  - Version 2 (`production` khi promote): correlation_id `req-0e1b2cce`
-  - Version 1 (`production` sau khi rollback): correlation_id `req-ea97b932`
+  - Version 1 (`baseline` / ban đầu `production`):
+    - Correlation ID: `req-3f12a3be` (hoặc `req-5f97ffb1`, `req-d76f4139`).
+    - Trace ID minh họa: `35d96de4a734f853ee2ecd570fc6b888` (thể hiện trong ảnh `07-trace-waterfall.png` và `08-trace-metadata.png`: root `lab-agent-run`, child span `retrieval` và `generation`, prompt `day13-chat` v1 nhãn `production`).
+  - Version 2 (`candidate`):
+    - Correlation ID: `req-a45b62fe` (hoặc `req-7c7acfe7`).
+  - Version 2 (`production` khi promote):
+    - Correlation ID: `req-0e1b2cce`.
+    - Trace ID minh họa: `f956e7df34e2883c4669a598ea4581b0` (thể hiện trong ảnh `10-prompt-rollback.png`: query `"Testing prompt v2 in production"`, prompt `day13-chat` version 2 nhãn `production`, 180 tokens, cost $0.002208).
+  - Version 1 (`production` sau khi rollback):
+    - Correlation ID: `req-ea97b932` (query `"Testing prompt v1 after rollback in production"`, nhãn `production` được chuyển về lại cho Version 1 an toàn không cần sửa code).
   *(Tìm kiếm correlation_id trên thanh search của Langfuse Traces để đối chiếu trace ID tương ứng).*
 - **Cách promote và rollback `production`:**
   - Promote: Trên Langfuse Prompts, chuyển nhãn `production` từ v1 sang v2. Khởi động lại API hoặc đợi hết 60s cache TTL để app nhận prompt mới.
@@ -95,8 +114,8 @@ Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ả
     {"service": "api", "latency_ms": 2655, "ttft_ms": 50, "tokens_in": 36, "tokens_out": 118, "cost_usd": 0.001878, "quality_score": 0.9, "tool_name": "retrieval", "tool_success": true, "payload": {"answer_preview": "Starter answer. You should improve this output logic and add better quality chec..."}, "event": "response_sent", "model": "claude-sonnet-4-5", "env": "dev", "user_id_hash": "c3a24a72d92a", "feature": "monitoring", "correlation_id": "req-cc2997e5", "session_id": "k4-l3b-challenge-s04", "level": "info", "ts": "2026-09-30T05:24:17.990603Z"}
     ```
 - **Trace ID và span gây ảnh hưởng:**
-  - Tìm kiếm trace theo `correlation_id=req-cc2997e5` trên Langfuse.
-  - Cây quan sát Waterfall cho thấy root trace `day13-agent-request` mất 2655ms, trong đó span con **`retrieval`** (loại retriever) chiếm tới **2500ms**, trong khi span **`generation`** chỉ mất **150ms**. Span gây tắc nghẽn chính là `retrieval`.
+  - **Trace ID:** `fb112dcc96e8756e3275bf2bf2c93fcf` (tìm kiếm theo `correlation_id=req-cc2997e5` trong project Langfuse cá nhân `day13-k4-l3b-2A202602678`).
+  - Cây quan sát Timeline/Waterfall (ảnh `14-incident-trace.png`) cho thấy root trace mất 2.66s (2655ms), trong đó span con **`retrieval`** chiếm tới **2.50s (2500ms)**, còn span **`generation`** chỉ mất **152ms**. Span gây tắc nghẽn chính là `retrieval`.
 - **Root cause:** Bước tra cứu tài liệu liên quan trong `app/mock_rag.py` (hàm `retrieve()`) bị nghẽn do kích hoạt sự cố `rag_slow` (mô phỏng tình huống vector database bị quá tải, suy giảm hiệu năng kết nối hoặc slow query kéo dài 2.5s).
 - **Fix action:** Tắt sự cố qua endpoint `/incidents/rag_slow/disable`. Đối với môi trường thực tế: scale out cluster cơ sở dữ liệu vector, tối ưu hóa index tìm kiếm tương đồng (ANN index), bổ sung tầng cache Redis/In-memory cho các câu hỏi phổ biến, và cấu hình timeout 1.5s kèm fallback về keyword search/cached context khi vector DB phản hồi chậm.
 - **Preventive measure:**
