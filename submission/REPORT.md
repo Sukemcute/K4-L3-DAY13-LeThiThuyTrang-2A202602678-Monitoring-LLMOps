@@ -7,9 +7,9 @@
 - **Họ và tên:** Lê Thị Thùy Trang
 - **MSSV:** 2A202602678
 - **Lớp:** K4-L3B
-- **Repository URL:**
-- **Commit SHA cuối:**
-- **Challenge ID:**
+- **Repository URL:** `https://github.com/Sukemcute/K4-L3-DAY13-LeThiThuyTrang-2A202602678-Monitoring-LLMOps`
+- **Commit SHA cuối:** *(Cập nhật sau commit cuối cùng)*
+- **Challenge ID:** `day13-k4-l3b-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202602678`
 
 ## 2. Evidence index
@@ -85,26 +85,39 @@ Giữ đúng ba output text và năm ảnh dưới đây. Không tách thêm ả
 
 ## 7. Điều tra challenge
 
-- **Challenge ID:**
-- **Khoảng thời gian điều tra:**
-- **Triệu chứng từ metrics:**
+- **Challenge ID:** `day13-k4-l3b-monitoring-llmops-v1` (Cohort K4, seed 1312)
+- **Khoảng thời gian điều tra:** `2026-09-30 05:24:15 UTC` đến `2026-09-30 05:24:30 UTC` (tương đương `12:24:15 - 12:24:30 UTC+7`).
+- **Triệu chứng từ metrics:** Panel `1. Latency percentiles and TTFT` trên Dashboard ghi nhận đỉnh nhọn độ trễ tăng vọt: P95 latency vượt ngưỡng 2000ms (đạt mức ~2655ms nội bộ API và ~10600ms - 13300ms từ góc nhìn client dưới tải đồng thời 5 workers). Trong khi đó, `TTFT` vẫn ổn định ở 50ms, `Error rate` là 0% và `Quality score` đạt 0.8 - 0.9, chứng minh sự cố chỉ nằm ở độ trễ xử lý trước khi gọi LLM.
 - **Log line và correlation ID liên quan:**
+  - `correlation_id`: `req-cc2997e5` (hoặc `req-ef6ddae0`, `req-de3cbfb9`, `req-4a43c8b8`, `req-d97ca85b`).
+  - Dòng log đại diện trong `data/logs.jsonl`:
+    ```json
+    {"service": "api", "latency_ms": 2655, "ttft_ms": 50, "tokens_in": 36, "tokens_out": 118, "cost_usd": 0.001878, "quality_score": 0.9, "tool_name": "retrieval", "tool_success": true, "payload": {"answer_preview": "Starter answer. You should improve this output logic and add better quality chec..."}, "event": "response_sent", "model": "claude-sonnet-4-5", "env": "dev", "user_id_hash": "c3a24a72d92a", "feature": "monitoring", "correlation_id": "req-cc2997e5", "session_id": "k4-l3b-challenge-s04", "level": "info", "ts": "2026-09-30T05:24:17.990603Z"}
+    ```
 - **Trace ID và span gây ảnh hưởng:**
-- **Root cause:**
-- **Fix action:**
+  - Tìm kiếm trace theo `correlation_id=req-cc2997e5` trên Langfuse.
+  - Cây quan sát Waterfall cho thấy root trace `day13-agent-request` mất 2655ms, trong đó span con **`retrieval`** (loại retriever) chiếm tới **2500ms**, trong khi span **`generation`** chỉ mất **150ms**. Span gây tắc nghẽn chính là `retrieval`.
+- **Root cause:** Bước tra cứu tài liệu liên quan trong `app/mock_rag.py` (hàm `retrieve()`) bị nghẽn do kích hoạt sự cố `rag_slow` (mô phỏng tình huống vector database bị quá tải, suy giảm hiệu năng kết nối hoặc slow query kéo dài 2.5s).
+- **Fix action:** Tắt sự cố qua endpoint `/incidents/rag_slow/disable`. Đối với môi trường thực tế: scale out cluster cơ sở dữ liệu vector, tối ưu hóa index tìm kiếm tương đồng (ANN index), bổ sung tầng cache Redis/In-memory cho các câu hỏi phổ biến, và cấu hình timeout 1.5s kèm fallback về keyword search/cached context khi vector DB phản hồi chậm.
 - **Preventive measure:**
+  - Kích hoạt alert `HighLatencyP95` (cảnh báo khi P95 latency vượt quá 2000ms trong 5 phút vào kênh Slack `#k4-l3b-alerts`).
+  - Thiết lập Circuit Breaker và Timeout cho client gọi dịch vụ RAG Retrieval.
+  - Bổ sung integration test & load test kiểm tra SLA của tầng RAG vào pipeline CI/CD trước khi deploy.
 
 > Gợi ý cách viết ngắn, không thay cho evidence thực tế: "Metric cho thấy `[latency/error/cost/quality]` bất thường trong `[khoảng thời gian]`. Log line `[event]` có `correlation_id=[...]` đại diện cho request bị ảnh hưởng. Trace cùng `correlation_id` cho thấy span `[retrieval/generation/prompt/tool]` có dấu hiệu `[chậm/lỗi/token tăng]`. Root cause là `[nguyên nhân suy ra từ evidence]`. Fix action là `[hành động khôi phục]`; preventive measure là `[alert/runbook/test/guardrail để ngăn tái diễn]`."
 
 ## 8. Giải thích và tự đánh giá
 
-- **Một quyết định kỹ thuật quan trọng và lý do:**
-- **Một lỗi/blocker đã gặp:**
-- **Cách tìm nguyên nhân và xử lý:**
+- **Một quyết định kỹ thuật quan trọng và lý do:** Đăng ký bộ xử lý `scrub_event` vào pipeline của `structlog` trước bước renderer/file writer, đồng thời thiết lập `capture_input=False` và `capture_output=False` trên các decorator `@observe` của Langfuse. Lý do: bảo đảm an toàn dữ liệu cá nhân (PII) theo nguyên tắc Security by Design / Defense in Depth, ngăn chặn triệt để nguy cơ PII thô (CCCD, email, điện thoại, thẻ ngân hàng) bị ghi xuống đĩa cục bộ hay gửi lên cloud của bên thứ ba.
+- **Một lỗi/blocker đã gặp:** Gặp lỗi `401 Unauthorized` khi kết nối Langfuse Cloud do nhầm lẫn giữa host EU (`cloud.langfuse.com`) và US (`us.cloud.langfuse.com`), khiến SDK phải dùng local fallback. Ngoài ra, giao diện Dashboard ở Panel 1 ban đầu bị tràn viền (overflow) giá trị TTFT khi co màn hình do kích thước font cố định `1.5rem` trên 4 chỉ số metric.
+- **Cách tìm nguyên nhân và xử lý:** Dùng script Python gọi trực tiếp `Langfuse.auth_check()` trên cả hai host để xác định chính xác project thuộc region EU, sau đó cập nhật `LANGFUSE_BASE_URL` trong `.env`. Với giao diện Dashboard, đã tái cấu trúc CSS sang `flex-wrap: wrap`, tinh chỉnh kích thước chữ `1.25rem`, đặt `min-width: 65px` và bổ sung `overflow: hidden` cho `.panel`.
 - **Cách hiểu luồng Metrics → Logs → Traces:**
-- **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:**
-- **Điều quan trọng nhất đã học:**
-- **Hạn chế hoặc phần chưa hoàn thành, nếu có:**
+  - **Metrics (What & When):** Đóng vai trò radar phát hiện triệu chứng tổng quan (ví dụ P95 latency vượt ngưỡng SLO) và mốc thời gian bắt đầu xảy ra sự cố.
+  - **Logs (Which):** Đóng vai trò danh sách đối tượng bị ảnh hưởng; lọc theo khung thời gian từ metrics để xác định các request lỗi/chậm và lấy ra mã định danh duy nhất `correlation_id`.
+  - **Traces (Where & Why):** Đóng vai trò kính hiển vi phân tích nguyên nhân; dùng `correlation_id` tra cứu trên cây Waterfall để định vị chính xác span con nào (retrieval hay generation) gây nghẽn, từ đó kết luận root cause một cách không thể chối cãi.
+- **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:** Ứng dụng LLMOps có hành vi biến động phụ thuộc vào prompt và dữ liệu đầu vào. Việc gắn nhãn (`baseline`, `candidate`, `production`) cho phép thử nghiệm và chuyển đổi an toàn mà không cần sửa code. Giám sát token/cost giúp kiểm soát chi phí API thời gian thực. Khả năng **Rollback nhanh** là lá chắn an toàn tối hậu, cho phép đưa hệ thống về trạng thái ổn định trong vài giây khi prompt mới gây ảo giác hoặc làm tăng vọt độ trễ.
+- **Điều quan trọng nhất đã học:** Nắm vững phương pháp luận điều tra sự cố bài bản theo chuỗi quan sát chuẩn mực `Metrics -> Logs -> Traces` và kỹ năng xây dựng hệ thống quan sát (Observability) toàn diện cho ứng dụng AI/LLM.
+- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Các thành phần LLM và RAG hiện tại đang chạy mô phỏng (FakeLLM / Mock RAG); trên môi trường production quy mô lớn, cần mở rộng thêm semantic caching bằng Redis, circuit breaker tự động và webhook cảnh báo trực tiếp về PagerDuty/Slack.
 
 ## 9. Checklist trước khi nộp
 
